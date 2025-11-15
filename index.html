@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>3D Audio Visual Experience</title>
+<title>3D Audio Visual Experience with Stereo File</title>
 <style>
   body { margin: 0; overflow: hidden; background: #000; font-family: sans-serif; }
   canvas { display: block; }
@@ -18,7 +18,7 @@
     border-radius: 8px;
   }
   #timer { font-size: 28px; color: white; font-weight: bold; text-align: center; }
-  #startAudio {
+  #startAudio, #fileInput {
     padding: 8px 16px;
     background: #ff4444;
     color: white;
@@ -41,6 +41,7 @@
   <div id="timer">05:00</div>
   <canvas id="miniMap"></canvas>
   <button id="startAudio">Click to Enable Sound</button>
+  <input type="file" id="fileInput" accept="audio/*">
 </div>
 
 <script type="module">
@@ -133,7 +134,6 @@ function updateMovement(){
 // -------------------- AUDIO --------------------
 let audioCtx, audioStarted=false;
 const circleAudio=[];
-let stereoBufferSource=null, stereoGain=null;
 
 // --- C-minor pentatonic over 3 octaves ---
 const baseMelody = [261.63, 311.13, 349.23, 392.00, 466.16]; // C, Eb, F, G, Bb
@@ -143,67 +143,34 @@ for(let o=0;o<3;o++){
     baseMelody.forEach(n=>melody.push(n*octaveMul));
 }
 
-function createImpulseResponse(ctx,duration=1.0,decay=1.0){
-    const rate=ctx.sampleRate;
-    const length=rate*duration;
-    const impulse=ctx.createBuffer(2,length,rate);
-    const left=impulse.getChannelData(0);
-    const right=impulse.getChannelData(1);
-    for(let i=0;i<length;i++){
-        const n=(length-i)/length;
-        const v=Math.random()*Math.pow(n,decay);
-        left[i]=v; right[i]=v;
-    }
-    return impulse;
-}
+// -------------------- STEREO FILE PLAYBACK --------------------
+let audioBufferSource=null;
 
-async function loadStereoFile(url){
-    const response = await fetch(url);
-    const arrayBuffer = await response.arrayBuffer();
-    return await audioCtx.decodeAudioData(arrayBuffer);
-}
+document.getElementById("fileInput").addEventListener("change", async (event)=>{
+    if(!audioStarted) return;
+    const file = event.target.files[0];
+    if(!file) return;
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = await audioCtx.decodeAudioData(arrayBuffer);
+    if(audioBufferSource) audioBufferSource.disconnect();
+    audioBufferSource = audioCtx.createBufferSource();
+    audioBufferSource.buffer = buffer;
+    const panner = audioCtx.createPanner();
+    panner.panningModel = "HRTF";
+    panner.refDistance = 1.0;
+    panner.maxDistance = 60;
+    panner.rolloffFactor = 0.8;
+    audioBufferSource.connect(panner);
+    panner.connect(audioCtx.destination);
+    audioBufferSource.loop = true;
+    audioBufferSource.start();
+    // Store panner for spatial updates
+    stereoPanner = panner;
+});
 
-async function startAudio(){
-    audioCtx=new AudioContext();
-    const reverb=createImpulseResponse(audioCtx);
-
-    // ----- Procedural Circle Audio -----
-    for(let i=0;i<4;i++){
-        const osc=audioCtx.createOscillator();
-        osc.type="triangle";
-        const panner=audioCtx.createPanner();
-        panner.panningModel="HRTF"; panner.refDistance=1.0; panner.maxDistance=60; panner.rolloffFactor=0.8;
-        const lowpass=audioCtx.createBiquadFilter(); lowpass.type="lowpass"; lowpass.frequency.value=20000;
-        const convolver=audioCtx.createConvolver(); convolver.buffer=reverb;
-        const reverbGain=audioCtx.createGain(); reverbGain.gain.value=0.10;
-        const gain=audioCtx.createGain(); gain.gain.value=0;
-        osc.connect(panner); panner.connect(lowpass); lowpass.connect(gain); gain.connect(audioCtx.destination);
-        osc.connect(convolver); convolver.connect(reverbGain); reverbGain.connect(audioCtx.destination);
-        osc.start();
-        circleAudio.push({
-            osc,
-            gain,
-            panner,
-            lowpass,
-            nextNoteTime: audioCtx.currentTime + Math.random()*1.5,
-            noteDuration: 0.2 + Math.random()*0.2,
-            currentFreq: 0,
-            currentVolume: 0,
-            lastNoteColor: new THREE.Color(neonColors[i]),
-            pointillistic: false
-        });
-    }
-
-    // ----- Stereo File Playback -----
-    const stereoBuffer = await loadStereoFile("https://cdn.jsdelivr.net/gh/yourusername/yourrepo/yourStereoFile.mp3"); // <- Replace with your stereo file URL
-    stereoBufferSource = audioCtx.createBufferSource();
-    stereoBufferSource.buffer = stereoBuffer;
-    stereoGain = audioCtx.createGain();
-    stereoGain.gain.value = 0.5; // Adjust volume
-    stereoBufferSource.connect(stereoGain).connect(audioCtx.destination);
-    stereoBufferSource.loop = true;
-    stereoBufferSource.start();
-
+// -------------------- START AUDIO --------------------
+function startAudio(){
+    audioCtx = new AudioContext();
     audioStarted=true;
     document.getElementById("startAudio").style.display="none";
     startTimer();
@@ -214,82 +181,23 @@ let timerSeconds=300, timerInterval=null;
 function startTimer(){
     timerInterval=setInterval(()=>{
         timerSeconds--;
-        if(timerSeconds===240) startDrumMachine();
-        if(timerSeconds===120) stopDrumMachine();
-        if(timerSeconds===60){
-            circleAudio.forEach(c=>c.pointillistic=true);
-        }
-        if(timerSeconds <= 10 && timerSeconds > 0 && audioStarted){
-            const fadeGain = timerSeconds / 10; 
-            circleAudio.forEach(c=>{ c.gain.gain.linearRampToValueAtTime(fadeGain * 0.3, audioCtx.currentTime + 0.1); });
-            if(stereoGain) stereoGain.gain.linearRampToValueAtTime(fadeGain * 0.5, audioCtx.currentTime + 0.1);
-        }
-        if(timerSeconds<=0){ 
-            clearInterval(timerInterval); 
-            stopAudio(); 
-            stopDrumMachine(); 
-        }
         const min=Math.floor(timerSeconds/60).toString().padStart(2,'0');
         const sec=(timerSeconds%60).toString().padStart(2,'0');
         document.getElementById("timer").innerText=min+":"+sec;
+        if(timerSeconds<=0){ 
+            clearInterval(timerInterval); 
+        }
     },1000);
 }
 
-// -------------------- POLYPHONIC MELODY --------------------
-function updateMelody(){
-    if(!audioStarted) return;
-    const now = audioCtx.currentTime;
-    circleAudio.forEach((c, i)=>{
-        if(now >= c.nextNoteTime){
-            const idx = Math.floor(Math.random()*melody.length);
-            const freq = melody[idx];
-            const color = new THREE.Color(`hsl(${Math.random()*360},100%,50%)`);
-            circles[i].targetColor.copy(color); c.lastNoteColor=color;
-
-            c.osc.frequency.cancelScheduledValues(now);
-            c.osc.frequency.setValueAtTime(c.currentFreq || freq, now);
-            c.osc.frequency.exponentialRampToValueAtTime(freq, now + 0.08);
-
-            const g = c.gain.gain;
-            g.cancelScheduledValues(now);
-
-            if(c.pointillistic){
-                g.setValueAtTime(0.0001, now);
-                g.linearRampToValueAtTime(0.3, now + 0.02);
-                g.linearRampToValueAtTime(0.0001, now + 0.08);
-                c.noteDuration = 0.05 + Math.random()*0.1;
-                c.nextNoteTime = now + 0.15 + Math.random()*0.2;
-            } else {
-                g.setValueAtTime(0.0001, now);
-                g.linearRampToValueAtTime(0.3, now + 0.05);
-                g.linearRampToValueAtTime(0.0001, now + c.noteDuration);
-                c.noteDuration = 0.15 + Math.random()*0.25;
-                c.nextNoteTime = now + 0.4 + Math.random()*0.8;
-            }
-
-            c.currentFreq = freq;
-        }
-    });
-}
-
-// -------------------- SPATIAL AUDIO --------------------
+// -------------------- UPDATE STEREO PANNER --------------------
+let stereoPanner=null;
 function updateAudioSpatial(){
     if(!audioStarted) return;
-    audioCtx.listener.positionX.value=camera.position.x;
-    audioCtx.listener.positionY.value=camera.position.y;
-    audioCtx.listener.positionZ.value=camera.position.z;
-    const forward=new THREE.Vector3(0,0,-1).applyEuler(camera.rotation);
-    audioCtx.listener.forwardX.value=forward.x; audioCtx.listener.forwardY.value=forward.y; audioCtx.listener.forwardZ.value=forward.z;
-    audioCtx.listener.upX.value=0; audioCtx.listener.upY.value=1; audioCtx.listener.upZ.value=0;
-
-    for(let i=0;i<4;i++){
-        const src=circleAudio[i];
-        const pos=circles[i].mesh.position;
-        src.panner.positionX.value=pos.x; src.panner.positionY.value=pos.y; src.panner.positionZ.value=pos.z;
-        const dist=camera.position.distanceTo(pos); const maxDist=25; const t=Math.min(dist/maxDist,1);
-        const vol=Math.pow(1-t,3); src.gain.gain.linearRampToValueAtTime(vol,audioCtx.currentTime+0.1); src.currentVolume=vol;
-        const minCut=600,maxCut=20000; const cutoff=minCut+(maxCut-minCut)*Math.pow(1-t,2.2);
-        src.lowpass.frequency.linearRampToValueAtTime(cutoff,audioCtx.currentTime+0.1);
+    if(stereoPanner){
+        stereoPanner.positionX.value=camera.position.x;
+        stereoPanner.positionY.value=camera.position.y;
+        stereoPanner.positionZ.value=camera.position.z;
     }
 }
 
@@ -302,19 +210,6 @@ function updateCirclesVisuals(){
         circleData.currentColor.lerp(circleData.targetColor,0.02);
         circleData.mesh.material.color.copy(circleData.currentColor);
         circleData.mesh.material.emissive.copy(circleData.currentColor);
-        const segs=circleSegments[i];
-        for(let j=0;j<segs.length;j++){
-            const seg=segs[j];
-            const freq=circleAudio[i]?.currentFreq||440;
-            const amp=circleAudio[i]?.currentVolume||0;
-            const len=2*(0.5+amp)*Math.sin(freq*time+j);
-            const positions=seg.geom.attributes.position.array;
-            positions[0]=0; positions[1]=0; positions[2]=0;
-            positions[3]=0; positions[4]=len; positions[5]=0;
-            seg.geom.attributes.position.needsUpdate=true;
-            const brightness=0.5+0.5*amp;
-            seg.line.material.color.copy(circleData.currentColor).multiplyScalar(brightness);
-        }
     }
 }
 
@@ -337,54 +232,25 @@ function updateMiniMap(){
     miniCtx.beginPath(); miniCtx.arc(ux,uy,5,0,Math.PI*2); miniCtx.fill();
 }
 
-// -------------------- DRUM MACHINE --------------------
-let drumActive=false;
-let drumInterval=null;
-const drumPosition=new THREE.Vector3(0,3,0);
-const rectangles=[];
-
-function startDrumMachine(){
-    if(!audioStarted || drumActive) return;
-    drumActive=true;
-    drumInterval=setInterval(()=>{
-        const now=audioCtx.currentTime;
-        const kick=audioCtx.createOscillator();
-        const kickGain=audioCtx.createGain();
-        kick.frequency.setValueAtTime(150,now); kick.type="sine";
-        kickGain.gain.setValueAtTime(0.5,now); kickGain.gain.exponentialRampToValueAtTime(0.001,now+0.2);
-        kick.connect(kickGain);
-        const panner=audioCtx.createPanner();
-        panner.panningModel="HRTF";
-        panner.positionX.value=drumPosition.x; panner.positionY.value=drumPosition.y; panner.positionZ.value=drumPosition.z;
-        kickGain.connect(panner); panner.connect(audioCtx.destination);
-        kick.start(now); kick.stop(now+0.2);
-
-        extrudeFloorRandom();
-        addRandomWireRectangle();
-    }, 300 + Math.random()*200);
+// -------------------- ANIMATE --------------------
+function animate(){
+    requestAnimationFrame(animate);
+    updateMovement();
+    updateCirclesVisuals();
+    updateMiniMap();
+    updateAudioSpatial();
+    renderer.render(scene,camera);
 }
+animate();
 
-function stopDrumMachine(){
-    if(drumInterval) clearInterval(drumInterval);
-    drumActive=false;
-}
+window.addEventListener("resize", ()=>{
+    camera.aspect=window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth,window.innerHeight);
+});
 
-// -------------------- FLOOR EXTRUSION RANDOM --------------------
-function extrudeFloorRandom(){
-    const verts=floorMesh.geometry.attributes.position;
-    for(let i=0;i<verts.count;i++){
-        if(Math.random()<0.05){
-            verts.setY(i,verts.getY(i)+Math.random()*1.0);
-        }
-    }
-    verts.needsUpdate=true;
-    floorMesh.geometry.computeVertexNormals();
-    
-    const t = Math.random();
-    floorMesh.material.color.setHSL(t, 0.6, 0.5);
-}
+document.getElementById("startAudio").addEventListener("click", startAudio);
 
-// -------------------- RANDOM WIRE RECTANGLES --------------------
-function addRandomWireRectangle(){
-    const width = Math.random()*4+1;
-    const height = Math.random()*3+0
+</script>
+</body>
+</html>
