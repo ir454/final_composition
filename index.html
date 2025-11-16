@@ -34,6 +34,26 @@
     border: 2px solid white;
     border-radius: 6px;
   }
+
+  /* -------------------- ADDED KEYBOARD CONTROL INSTRUCTIONS -------------------- */
+  #controls {
+    color: white;
+    font-size: 14px;
+    background: rgba(0,0,0,0.45);
+    padding: 8px;
+    border-radius: 6px;
+    line-height: 1.3em;
+  }
+  #controls ul {
+    margin: 6px 0 0 16px;
+    padding: 0;
+    list-style-type: disc;
+  }
+  #controls li {
+    margin-bottom: 3px;
+  }
+  /* ----------------------------------------------------------------------------- */
+
 </style>
 </head>
 <body>
@@ -41,6 +61,18 @@
   <div id="timer">05:00</div>
   <canvas id="miniMap"></canvas>
   <button id="startAudio">Click to Enable Sound</button>
+
+  <!-- -------------------- ADDED CONTROLS PANEL -------------------- -->
+  <div id="controls">
+    <strong>Controls:</strong>
+    <ul>
+      <li>Move: W A S D</li>
+      <li>Look: Arrow Keys</li>
+      <li>Move Circle to You: Keys 1–4</li>
+    </ul>
+  </div>
+  <!-- --------------------------------------------------------------- -->
+
 </div>
 
 <script type="module">
@@ -61,7 +93,6 @@ document.body.appendChild(renderer.domElement);
 const floorSize = 60;
 const floorSegments = 60;
 const floorGeometry = new THREE.PlaneGeometry(floorSize,floorSize,floorSegments,floorSegments);
-// Floor starts white, but color will change dynamically
 const floorMaterial = new THREE.MeshBasicMaterial({color:0xffffff, wireframe:true, transparent:true, opacity:0.5});
 const floorMesh = new THREE.Mesh(floorGeometry,floorMaterial);
 floorMesh.rotation.x=-Math.PI/2;
@@ -135,8 +166,7 @@ function updateMovement(){
 let audioCtx, audioStarted=false;
 const circleAudio=[];
 
-// --- C-minor pentatonic over 3 octaves ---
-const baseMelody = [261.63, 311.13, 349.23, 392.00, 466.16]; // C, Eb, F, G, Bb
+const baseMelody = [261.63, 311.13, 349.23, 392.00, 466.16];
 const melody = [];
 for(let o=0;o<3;o++){ 
     const octaveMul = Math.pow(2,o);
@@ -361,13 +391,11 @@ function extrudeFloorRandom(){
     }
     verts.needsUpdate=true;
     floorMesh.geometry.computeVertexNormals();
-    
-    // Update floor color dynamically based on random noise
     const t = Math.random();
     floorMesh.material.color.setHSL(t, 0.6, 0.5);
 }
 
-// -------------------- RANDOM WIRE RECTANGLES WITH RANDOM COLOR --------------------
+// -------------------- RANDOM WIRE RECTANGLES --------------------
 function addRandomWireRectangle(){
     const width = Math.random()*4+1;
     const height = Math.random()*3+0.5;
@@ -375,11 +403,8 @@ function addRandomWireRectangle(){
     const x = (Math.random()-0.5)*floorSize;
     const z = (Math.random()-0.5)*floorSize;
     const geometry = new THREE.BoxGeometry(width,height,depth);
-    
-    // Assign a random neon color for each rectangle
     const color = new THREE.Color(`hsl(${Math.random()*360},100%,50%)`);
     const material = new THREE.MeshBasicMaterial({color: color, wireframe:true, transparent:true, opacity:1});
-    
     const mesh = new THREE.Mesh(geometry,material);
     mesh.position.set(x,height/2,z);
     scene.add(mesh);
