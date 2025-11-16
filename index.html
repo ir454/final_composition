@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Möbius Sculpture</title>
+<title>Torus Sculpture</title>
 <style>
   body { margin:0; overflow:hidden; background:#111; }
   canvas { display:block; }
@@ -28,7 +28,7 @@ document.body.appendChild(renderer.domElement);
 scene.add(new THREE.AmbientLight(0xffffff,0.5));
 
 /* ===============================
-   CREATE MÖBIUS STRIPS
+   CREATE TORUSES
 =============================== */
 const sculpture = new THREE.Group();
 scene.add(sculpture);
@@ -37,8 +37,8 @@ const shapes = [];
 const shapeCount = 15;
 const spread = 10;
 
-function createMobius(radius,tube,p,q){
-  const geom = new THREE.MobiusStripGeometry(radius,tube,8,30,p,q);
+function createTorus(radius,tube){
+  const geom = new THREE.TorusGeometry(radius, tube, 8, 30);
   const mat = new THREE.MeshStandardMaterial({color:0x00ffcc, wireframe:true});
   return new THREE.Mesh(geom, mat);
 }
@@ -46,10 +46,8 @@ function createMobius(radius,tube,p,q){
 for(let i=0;i<shapeCount;i++){
   const radius = 0.5 + Math.random()*1.5;
   const tube = 0.1 + Math.random()*0.3;
-  const p = Math.random()*2*Math.PI;
-  const q = 1 + Math.floor(Math.random()*2);
 
-  const mesh = createMobius(radius,tube,p,q);
+  const mesh = createTorus(radius, tube);
   mesh.position.set((Math.random()-0.5)*spread,(Math.random()-0.5)*spread,(Math.random()-0.5)*spread);
   mesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
   sculpture.add(mesh);
