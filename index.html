@@ -332,11 +332,12 @@ function updateCirclesVisuals(){
 }
 
 // -------------------- MINI-MAP --------------------
-const miniMap=document.getElementById("miniMap");
-const miniCtx=miniMap.getContext("2d");
-function updateMiniMap(){
-  // -------------------- MINI-MAP CLICK + DRAG TO MOVE INDIVIDUAL CIRCLES --------------------
+const miniMap = document.getElementById("miniMap");
+const miniCtx = miniMap.getContext("2d");
+
+// --- Drag system state ---
 let draggingIndex = null;
+let isDragging = false;
 
 function miniMapToWorld(x, y) {
     const worldX = (x / miniMap.width) * floorSize - floorSize / 2;
@@ -344,24 +345,29 @@ function miniMapToWorld(x, y) {
     return { worldX, worldZ };
 }
 
+// -------------------- DRAG START --------------------
 miniMap.addEventListener("mousedown", (e) => {
     const rect = miniMap.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
 
-    // Detect if clicking a circle
+    // Test if clicking a circle
     for (let i = 0; i < circles.length; i++) {
         const cx = (circles[i].mesh.position.x + floorSize/2) / floorSize * miniMap.width;
         const cy = (circles[i].mesh.position.z + floorSize/2) / floorSize * miniMap.height;
+
         const dx = mx - cx;
         const dy = my - cy;
-        if (dx*dx + dy*dy < 25) { // within radius=5 on minimap
+
+        if (dx*dx + dy*dy < 25) {
             draggingIndex = i;
-            break;
+            isDragging = true;
+            return;
         }
     }
 });
 
+// -------------------- DRAG MOVE --------------------
 miniMap.addEventListener("mousemove", (e) => {
     if (draggingIndex === null) return;
 
@@ -374,54 +380,157 @@ miniMap.addEventListener("mousemove", (e) => {
     circles[draggingIndex].mesh.position.set(worldX, 1, worldZ);
 });
 
+// -------------------- DRAG END --------------------
 miniMap.addEventListener("mouseup", () => {
     draggingIndex = null;
-});
-miniMap.addEventListener("mouseleave", () => {
-    draggingIndex = null;
+    isDragging = false;
 });
 
-  // -------------------- MINI-MAP CLICK TO PLACE SOUND --------------------
-miniMap.addEventListener("click", (e)=>{
+miniMap.addEventListener("mouseleave", () => {
+    draggingIndex = null;
+    isDragging = false;
+});
+
+// -------------------- CLICK TO MOVE NEAREST (only if NOT dragging) --------------------
+miniMap.addEventListener("click", (e) => {
+    if (isDragging) return; // Prevent click from triggering during drag
+
     const rect = miniMap.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    // Convert mini-map coordinates → world coordinates
-    const worldX = (x / miniMap.width) * floorSize - floorSize / 2;
-    const worldZ = (y / miniMap.height) * floorSize - floorSize / 2;
+    const { worldX, worldZ } = miniMapToWorld(x, y);
 
-    // Find nearest circle to reposition
     let nearestIndex = 0;
     let nearestDist = Infinity;
+
     for (let i = 0; i < circles.length; i++) {
         const dist = circles[i].mesh.position.distanceTo(
             new THREE.Vector3(worldX, circles[i].mesh.position.y, worldZ)
         );
+
         if (dist < nearestDist) {
             nearestDist = dist;
             nearestIndex = i;
         }
     }
 
-    // Move the nearest sound source
     circles[nearestIndex].mesh.position.set(worldX, 1, worldZ);
 });
 
+// -------------------- MINI-MAP --------------------
+const miniMap = document.getElementById("miniMap");
+const miniCtx = miniMap.getContext("2d");
+
+// --- Drag system state ---
+let draggingIndex = null;
+let isDragging = false;
+
+function miniMapToWorld(x, y) {
+    const worldX = (x / miniMap.width) * floorSize - floorSize / 2;
+    const worldZ = (y / miniMap.height) * floorSize - floorSize / 2;
+    return { worldX, worldZ };
+}
+
+// -------------------- DRAG START --------------------
+miniMap.addEventListener("mousedown", (e) => {
+    const rect = miniMap.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Test if clicking a circle
+    for (let i = 0; i < circles.length; i++) {
+        const cx = (circles[i].mesh.position.x + floorSize/2) / floorSize * miniMap.width;
+        const cy = (circles[i].mesh.position.z + floorSize/2) / floorSize * miniMap.height;
+
+        const dx = mx - cx;
+        const dy = my - cy;
+
+        if (dx*dx + dy*dy < 25) {
+            draggingIndex = i;
+            isDragging = true;
+            return;
+        }
+    }
+});
+
+// -------------------- DRAG MOVE --------------------
+miniMap.addEventListener("mousemove", (e) => {
+    if (draggingIndex === null) return;
+
+    const rect = miniMap.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Convert & move selected circle
+    const { worldX, worldZ } = miniMapToWorld(mx, my);
+    circles[draggingIndex].mesh.position.set(worldX, 1, worldZ);
+});
+
+// -------------------- DRAG END --------------------
+miniMap.addEventListener("mouseup", () => {
+    draggingIndex = null;
+    isDragging = false;
+});
+
+miniMap.addEventListener("mouseleave", () => {
+    draggingIndex = null;
+    isDragging = false;
+});
+
+// -------------------- CLICK TO MOVE NEAREST (only if NOT dragging) --------------------
+miniMap.addEventListener("click", (e) => {
+    if (isDragging) return; // Prevent click from triggering during drag
+
+    const rect = miniMap.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const { worldX, worldZ } = miniMapToWorld(x, y);
+
+    let nearestIndex = 0;
+    let nearestDist = Infinity;
+
+    for (let i = 0; i < circles.length; i++) {
+        const dist = circles[i].mesh.position.distanceTo(
+            new THREE.Vector3(worldX, circles[i].mesh.position.y, worldZ)
+        );
+
+        if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestIndex = i;
+        }
+    }
+
+    circles[nearestIndex].mesh.position.set(worldX, 1, worldZ);
+});
+
+// -------------------- MINIMAP RENDER --------------------
+function updateMiniMap() {
     miniCtx.clearRect(0,0,miniMap.width,miniMap.height);
     miniCtx.fillStyle="#111";
     miniCtx.fillRect(0,0,miniMap.width,miniMap.height);
-    circles.forEach((c,i)=>{
-        const x=Math.floor((c.mesh.position.x+floorSize/2)/floorSize*miniMap.width);
-        const y=Math.floor((c.mesh.position.z+floorSize/2)/floorSize*miniMap.height);
-        miniCtx.fillStyle=`#${neonColors[i].toString(16).padStart(6,'0')}`;
-        miniCtx.beginPath(); miniCtx.arc(x,y,5,0,Math.PI*2); miniCtx.fill();
+
+    // Draw circles
+    circles.forEach((c,i) => {
+        const x = Math.floor((c.mesh.position.x + floorSize/2) / floorSize * miniMap.width);
+        const y = Math.floor((c.mesh.position.z + floorSize/2) / floorSize * miniMap.height);
+        miniCtx.fillStyle = `#${neonColors[i].toString(16).padStart(6,'0')}`;
+        miniCtx.beginPath();
+        miniCtx.arc(x, y, 5, 0, Math.PI*2);
+        miniCtx.fill();
     });
-    const ux=Math.floor((camera.position.x+floorSize/2)/floorSize*miniMap.width);
-    const uy=Math.floor((camera.position.z+floorSize/2)/floorSize*miniMap.height);
-    miniCtx.fillStyle="red";
-    miniCtx.beginPath(); miniCtx.arc(ux,uy,5,0,Math.PI*2); miniCtx.fill();
+
+    // Draw user
+    const ux = Math.floor((camera.position.x + floorSize/2) / floorSize * miniMap.width);
+    const uy = Math.floor((camera.position.z + floorSize/2) / floorSize * miniMap.height);
+    miniCtx.fillStyle = "red";
+    miniCtx.beginPath();
+    miniCtx.arc(ux, uy, 5, 0, Math.PI*2);
+    miniCtx.fill();
 }
+
+
 
 // -------------------- DRUM MACHINE --------------------
 let drumActive=false;
