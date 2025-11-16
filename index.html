@@ -484,6 +484,7 @@ miniMap.addEventListener("mouseleave", ()=>{
 function updateMiniMap(){
     miniCtx.clearRect(0,0,miniMap.width,miniMap.height);
 
+    // Draw circles
     circles.forEach((c,i)=>{
         const x = (c.mesh.position.x + floorSize/2) / floorSize * miniMap.width;
         const y = (c.mesh.position.z + floorSize/2) / floorSize * miniMap.height;
@@ -493,42 +494,30 @@ function updateMiniMap(){
         miniCtx.fillStyle = `#${c.currentColor.getHexString()}`;
         miniCtx.fill();
     });
+
+    // Draw user position as a red dot
+    const userX = (camera.position.x + floorSize/2) / floorSize * miniMap.width;
+    const userY = (camera.position.z + floorSize/2) / floorSize * miniMap.height;
+
+    miniCtx.beginPath();
+    miniCtx.arc(userX, userY, 5, 0, Math.PI*2);
+    miniCtx.fillStyle = "red";
+    miniCtx.fill();
 }
 
 /* ============================================================
-   DRUM MACHINE
+   DRUM MACHINE (Optional)
 ============================================================ */
-let drumActive = false;
-let drumInterval = null;
-const drumPosition = new THREE.Vector3(0,3,0);
-const rectangles = [];
-
+let drumInterval=null;
 function startDrumMachine(){
-    if(!audioStarted || drumActive) return;
-    drumActive = true;
-
-    for(let i=0;i<10;i++){
-        const geo = new THREE.BoxGeometry(0.5,0.5,0.5);
-        const mat = new THREE.MeshStandardMaterial({color: 0xffffff, emissive:0xffffff});
-        const rect = new THREE.Mesh(geo, mat);
-        rect.position.set(drumPosition.x, drumPosition.y, drumPosition.z);
-        scene.add(rect);
-        rectangles.push(rect);
-    }
-
     drumInterval = setInterval(()=>{
-        rectangles.forEach((rect,i)=>{
-            rect.position.y = drumPosition.y + Math.random()*2;
-            rect.material.color.setHSL(Math.random(),1,0.5);
-        });
-    },200);
+        for(let i=0;i<4;i++){
+            circles[i].targetColor.setHSL(Math.random(),1,0.5);
+        }
+    }, 300);
 }
-
 function stopDrumMachine(){
-    drumActive=false;
-    clearInterval(drumInterval);
-    rectangles.forEach(r=>scene.remove(r));
-    rectangles.length = 0;
+    if(drumInterval) clearInterval(drumInterval);
 }
 
 /* ============================================================
@@ -536,11 +525,7 @@ function stopDrumMachine(){
 ============================================================ */
 function stopAudio(){
     if(!audioStarted) return;
-    circleAudio.forEach(c=>{
-        c.osc.stop();
-        c.gain.disconnect();
-        c.panner.disconnect();
-    });
+    circleAudio.forEach(c => c.osc.stop());
 }
 
 /* ============================================================
@@ -557,21 +542,22 @@ function animate(){
 
     renderer.render(scene, camera);
 }
+
 animate();
 
 /* ============================================================
-   START AUDIO BUTTON
+   AUDIO START BUTTON
 ============================================================ */
 document.getElementById("startAudio").addEventListener("click", startAudio);
 
+/* ============================================================
+   WINDOW RESIZE
+============================================================ */
 window.addEventListener("resize", ()=>{
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    miniMap.width = miniMap.clientWidth;
-    miniMap.height = miniMap.clientHeight;
 });
 </script>
-
 </body>
 </html>
