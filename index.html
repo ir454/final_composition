@@ -335,6 +335,33 @@ function updateCirclesVisuals(){
 const miniMap=document.getElementById("miniMap");
 const miniCtx=miniMap.getContext("2d");
 function updateMiniMap(){
+  // -------------------- MINI-MAP CLICK TO PLACE SOUND --------------------
+miniMap.addEventListener("click", (e)=>{
+    const rect = miniMap.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Convert mini-map coordinates → world coordinates
+    const worldX = (x / miniMap.width) * floorSize - floorSize / 2;
+    const worldZ = (y / miniMap.height) * floorSize - floorSize / 2;
+
+    // Find nearest circle to reposition
+    let nearestIndex = 0;
+    let nearestDist = Infinity;
+    for (let i = 0; i < circles.length; i++) {
+        const dist = circles[i].mesh.position.distanceTo(
+            new THREE.Vector3(worldX, circles[i].mesh.position.y, worldZ)
+        );
+        if (dist < nearestDist) {
+            nearestDist = dist;
+            nearestIndex = i;
+        }
+    }
+
+    // Move the nearest sound source
+    circles[nearestIndex].mesh.position.set(worldX, 1, worldZ);
+});
+
     miniCtx.clearRect(0,0,miniMap.width,miniMap.height);
     miniCtx.fillStyle="#111";
     miniCtx.fillRect(0,0,miniMap.width,miniMap.height);
