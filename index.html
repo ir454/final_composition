@@ -1,43 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Audio-Visual Sculpture</title>
-    <style>
-        body { margin: 0; overflow: hidden; background-color: #111; }
-        canvas { display: block; }
-    </style>
+<meta charset="UTF-8">
+<title>Escher Audio-Visual Sculpture - Moving Polyphonic Symphony</title>
+<style>
+    body { margin:0; overflow:hidden; background-color:#111; }
+    canvas { display:block; }
+</style>
 </head>
 <body>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-
 <script>
 /* ===============================
-   Setup Three.js Scene
+   Three.js Setup
    =============================== */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
-const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-);
-camera.position.set(0, 5, 20);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0, 5, 25);
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-/* ===============================
-   Add Lights
-   =============================== */
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+const ambientLight = new THREE.AmbientLight(0xffffff,0.5);
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-directionalLight.position.set(5, 10, 7);
+const directionalLight = new THREE.DirectionalLight(0xffffff,0.8);
+directionalLight.position.set(5,10,7);
 scene.add(directionalLight);
 
 /* ===============================
@@ -45,96 +36,150 @@ scene.add(directionalLight);
    =============================== */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-/* Function to create a spatialized oscillator */
-function createOscillator(x, y, z, freq) {
-    const oscillator = audioCtx.createOscillator();
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(freq, audioCtx.currentTime);
+/* Chords in C minor scale */
+const chords = {
+    Cm: [261.63, 311.13, 392.00, 523.25], // C, Eb, G, C5
+    Fm: [349.23, 415.30, 466.16, 698.46], // F, Ab, C, F5
+    G: [392.00, 493.88, 587.33, 784.00]   // G, B, D, G5
+};
+
+/* Chord progression */
+const progression = ['Cm','Fm','G','Cm'];
+let chordIndex = 0;
+
+/* Play short note at 3D position */
+function playNote(freq,x,y,z,duration=0.3){
+    const osc = audioCtx.createOscillator();
+    osc.type='sine';
+    osc.frequency.setValueAtTime(freq,audioCtx.currentTime);
 
     const panner = audioCtx.createPanner();
-    panner.panningModel = 'HRTF';
-    panner.distanceModel = 'inverse';
-    panner.positionX.setValueAtTime(x, audioCtx.currentTime);
-    panner.positionY.setValueAtTime(y, audioCtx.currentTime);
-    panner.positionZ.setValueAtTime(z, audioCtx.currentTime);
+    panner.panningModel='HRTF';
+    panner.distanceModel='inverse';
+    panner.positionX.setValueAtTime(x,audioCtx.currentTime);
+    panner.positionY.setValueAtTime(y,audioCtx.currentTime);
+    panner.positionZ.setValueAtTime(z,audioCtx.currentTime);
 
-    oscillator.connect(panner).connect(audioCtx.destination);
-    oscillator.start();
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.setValueAtTime(0.08,audioCtx.currentTime);
 
-    return { oscillator, panner };
+    osc.connect(panner).connect(gainNode).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime+duration);
 }
 
 /* ===============================
-   Escher-Inspired Sculpture
+   Create Sculpture with Moving Cubes
    =============================== */
 const sculpture = new THREE.Group();
 scene.add(sculpture);
 
-const geometry = new THREE.BoxGeometry(1, 1, 1);
-const material = new THREE.MeshStandardMaterial({ color: 0x00ffcc, roughness: 0.3 });
+const geometry = new THREE.BoxGeometry(1,1,1);
+const material = new THREE.MeshStandardMaterial({color:0x00ffcc,roughness:0.3});
 
-const audioObjects = [];
+const cubeData=[];
+const size=5;
 
-const size = 5; // grid size
-for (let x = -size; x <= size; x += 2) {
-    for (let y = 0; y <= size * 2; y += 2) {
-        for (let z = -size; z <= size; z += 2) {
-            // Create cubes in a recursive, offset pattern
+for(let x=-size;x<=size;x+=2){
+    for(let y=0;y<=size*2;y+=2){
+        for(let z=-size;z<=size;z+=2){
             const cube = new THREE.Mesh(geometry, material);
-            cube.position.set(x + (y % 4), y, z + (x % 4));
             sculpture.add(cube);
 
-            // Create oscillator at the cube's position
-            const freq = 100 + Math.random() * 400; // random frequency
-            const audioObj = createOscillator(cube.position.x, cube.position.y, cube.position.z, freq);
-            audioObjects.push(audioObj);
+            const voices=[];
+            for(let v=0;v<2;v++){
+                voices.push({
+                    chordStep: Math.floor(Math.random()*4),
+                    offset: Math.random()*2,
+                    interval: 0.5 + Math.random()*0.8
+                });
+            }
+
+            // Assign each cube a motion path: sin + cos for "impossible staircases"
+            cubeData.push({
+                cube: cube,
+                baseX: x + (y%4)*0.3,
+                baseY: y,
+                baseZ: z + (x%4)*0.3,
+                voices: voices,
+                motionOffset: Math.random()*Math.PI*2 // phase shift
+            });
         }
     }
 }
 
 /* ===============================
-   Animate Scene
+   Animate Scene & Polyphonic Audio
    =============================== */
-function animate() {
+function animate(){
     requestAnimationFrame(animate);
 
-    // Rotate sculpture slowly
-    sculpture.rotation.x += 0.001;
-    sculpture.rotation.y += 0.002;
+    const t = Date.now()*0.001;
 
-    // Optional: make cubes pulse to audio (visualization effect)
-    sculpture.children.forEach((cube, idx) => {
-        const scale = 0.5 + Math.sin(Date.now() * 0.001 + idx) * 0.5;
-        cube.scale.set(scale, scale, scale);
+    sculpture.children.forEach((cube,idx)=>{
+        const data = cubeData[idx];
+        // Impossible staircase motion
+        const radius = 0.5 + 0.5*Math.sin(t + data.motionOffset);
+        cube.position.x = data.baseX + radius * Math.sin(t + idx*0.1);
+        cube.position.y = data.baseY + 0.5*Math.sin(t*1.2 + idx*0.2);
+        cube.position.z = data.baseZ + radius * Math.cos(t + idx*0.1);
+
+        const scale = 0.8 + 0.2*Math.sin(t + idx*0.3);
+        cube.scale.set(scale,scale,scale);
     });
 
-    // Update listener position to camera
-    if (audioCtx.listener.positionX) { // modern API
-        audioCtx.listener.positionX.setValueAtTime(camera.position.x, audioCtx.currentTime);
-        audioCtx.listener.positionY.setValueAtTime(camera.position.y, audioCtx.currentTime);
-        audioCtx.listener.positionZ.setValueAtTime(camera.position.z, audioCtx.currentTime);
+    // Update listener
+    if(audioCtx.listener.positionX){
+        audioCtx.listener.positionX.setValueAtTime(camera.position.x,audioCtx.currentTime);
+        audioCtx.listener.positionY.setValueAtTime(camera.position.y,audioCtx.currentTime);
+        audioCtx.listener.positionZ.setValueAtTime(camera.position.z,audioCtx.currentTime);
     }
 
-    renderer.render(scene, camera);
+    const now = audioCtx.currentTime;
+
+    // Play polyphonic notes
+    cubeData.forEach(c=>{
+        c.voices.forEach(v=>{
+            if(!v.nextTime) v.nextTime = now + v.offset;
+            if(now >= v.nextTime){
+                const chordName = progression[chordIndex];
+                const chord = chords[chordName];
+                const freq = chord[v.chordStep % chord.length];
+                playNote(freq,c.cube.position.x,c.cube.position.y,c.cube.position.z,0.25);
+                v.chordStep++;
+                v.nextTime += v.interval;
+            }
+        });
+    });
+
+    // Advance chord progression every 8s
+    if(!animate.lastChordChange) animate.lastChordChange = now;
+    if(now - animate.lastChordChange > 8){
+        chordIndex = (chordIndex+1)%progression.length;
+        animate.lastChordChange = now;
+    }
+
+    // Slowly rotate sculpture as a whole
+    sculpture.rotation.y += 0.0015;
+
+    renderer.render(scene,camera);
 }
 animate();
 
 /* ===============================
-   Handle Window Resize
+   Handle Resize
    =============================== */
-window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+window.addEventListener('resize',()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(window.innerWidth,window.innerHeight);
 });
 
 /* ===============================
-   User Interaction to Resume Audio
+   Click to Resume Audio
    =============================== */
-document.body.addEventListener('click', () => {
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
+document.body.addEventListener('click',()=>{
+    if(audioCtx.state==='suspended') audioCtx.resume();
 });
 </script>
 </body>
