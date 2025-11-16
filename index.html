@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Flying Sculptural Sequencer</title>
+<title>Interactive Audio-Visual Sculpture</title>
 <style>
   body { margin:0; overflow:hidden; background:#111; }
   canvas { display:block; }
@@ -18,38 +18,37 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 500);
-camera.position.set(0, 5, 30);
+camera.position.set(0,5,30);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-/* LIGHTS */
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
 dirLight.position.set(50,100,50);
 scene.add(dirLight);
 
 /* ===============================
-   CREATE SCULPTURE WITH VARIOUS SHAPES
+   SCULPTURE WITH VARIOUS SHAPES
    =============================== */
 const sculpture = new THREE.Group();
 scene.add(sculpture);
 
 const shapes = ['box','sphere','cone','torus','cylinder'];
 const cubes = [];
-const shapeCount = 40;
-const spread = 15;
+const shapeCount = 60;
+const spread = 20;
 
 for(let i=0; i<shapeCount; i++){
   const type = shapes[Math.floor(Math.random()*shapes.length)];
   let geom;
   switch(type){
     case 'box': geom = new THREE.BoxGeometry(1,1,1); break;
-    case 'sphere': geom = new THREE.SphereGeometry(0.8, 10, 10); break;
-    case 'cone': geom = new THREE.ConeGeometry(0.8, 1.5, 8); break;
-    case 'torus': geom = new THREE.TorusGeometry(0.6, 0.2, 8, 16); break;
-    case 'cylinder': geom = new THREE.CylinderGeometry(0.5,0.5,1.5,8); break;
+    case 'sphere': geom = new THREE.SphereGeometry(0.8, 12, 12); break;
+    case 'cone': geom = new THREE.ConeGeometry(0.8, 1.5, 10); break;
+    case 'torus': geom = new THREE.TorusGeometry(0.6, 0.2, 10, 16); break;
+    case 'cylinder': geom = new THREE.CylinderGeometry(0.5,0.5,1.5,10); break;
   }
 
   const mat = new THREE.MeshBasicMaterial({color:0x00ffcc, wireframe:true});
@@ -68,16 +67,17 @@ for(let i=0; i<shapeCount; i++){
     mesh: mesh,
     basePos: mesh.position.clone(),
     phase: Math.random()*Math.PI*2,
-    scalePulse: 0
+    scalePulse: 0,
+    seqOffset: Math.floor(Math.random()*20)
   });
 }
 
 /* ===============================
-   WEB AUDIO SETUP
+   WEB AUDIO
    =============================== */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-const Cminor = [261.63, 311.13, 392.00, 523.25, 466.16]; // C, Eb, G, C5, Bb
-let cubeIndex = 0;
+const Cminor = [261.63, 311.13, 392.00, 466.16, 523.25]; // C, Eb, G, Bb, C5
+let globalStep = 0;
 
 function playNote(freq, cube){
   const osc = audioCtx.createOscillator();
@@ -98,58 +98,70 @@ function playNote(freq, cube){
   osc.start();
   osc.stop(audioCtx.currentTime + 0.25);
 
-  cube.scalePulse = 0.5;
+  cube.scalePulse = 0.6; // strong pulse
 }
 
 /* ===============================
    ANIMATE SCENE & CAMERA
    =============================== */
-let cameraPathTime = 0;
+let lastTime = 0;
+let cameraTime = 0;
+let cameraPulse = 0;
+
 function animate(){
   requestAnimationFrame(animate);
   const t = performance.now()*0.001;
 
-  // Animate shapes
+  // Animate cubes: floating, rotation, staggered scale pulse
   cubes.forEach((c)=>{
-    const floatX = Math.sin(t + c.phase)*0.3;
-    const floatY = Math.cos(t*1.3 + c.phase)*0.3;
-    const floatZ = Math.sin(t*0.7 + c.phase)*0.3;
+    const floatX = Math.sin(t*1.2 + c.phase)*0.4;
+    const floatY = Math.cos(t*0.9 + c.phase)*0.4;
+    const floatZ = Math.sin(t*0.7 + c.phase)*0.4;
     c.mesh.position.x = c.basePos.x + floatX;
     c.mesh.position.y = c.basePos.y + floatY;
     c.mesh.position.z = c.basePos.z + floatZ;
 
-    c.mesh.rotation.x += 0.01;
-    c.mesh.rotation.y += 0.01;
+    c.mesh.rotation.x += 0.01 + 0.01*Math.sin(t + c.seqOffset);
+    c.mesh.rotation.y += 0.01 + 0.01*Math.cos(t + c.seqOffset);
 
-    c.scalePulse *= 0.88;
-    const scale = 0.8 + c.scalePulse;
+    c.scalePulse *= 0.85;
+    const scale = 0.8 + 0.3*Math.sin(t + c.seqOffset*0.5) + c.scalePulse;
     c.mesh.scale.set(scale, scale, scale);
   });
 
-  // Camera flies through sculpture
-  cameraPathTime += 0.003;
-  camera.position.x = Math.sin(cameraPathTime*0.7)*20;
-  camera.position.y = Math.sin(cameraPathTime*0.5)*5 + 5;
-  camera.position.z = Math.cos(cameraPathTime*0.7)*20;
+  // Camera responds to pulse rhythm
+  cameraTime += 0.005;
+  const pulseFactor = 1 + cameraPulse*0.5;
+  camera.position.x = (Math.sin(cameraTime*1.2)*25 + Math.sin(cameraTime*0.7)*10)*pulseFactor;
+  camera.position.y = (Math.sin(cameraTime*0.8)*10 + 5)*pulseFactor;
+  camera.position.z = (Math.cos(cameraTime*1.3)*25 + Math.cos(cameraTime*0.6)*10)*pulseFactor;
   camera.lookAt(0,0,0);
 
-  sculpture.rotation.y += 0.0008;
+  sculpture.rotation.y += 0.001;
 
   renderer.render(scene, camera);
 
-  // Melodic sequencer
-  if(!animate.lastPlay) animate.lastPlay = t;
-  if(t - animate.lastPlay > 0.25){
-    const freq = Cminor[cubeIndex % Cminor.length];
-    playNote(freq, cubes[cubeIndex]);
-    cubeIndex = (cubeIndex + 1) % cubes.length;
-    animate.lastPlay = t;
+  // Sequencer rhythm: staggered
+  if(!lastTime) lastTime = t;
+  if(t - lastTime > 0.15){
+    cubes.forEach((c, i)=>{
+      if((globalStep + c.seqOffset) % 20 === 0){
+        const freq = Cminor[i % Cminor.length];
+        playNote(freq, c);
+        cameraPulse = 1; // camera pulse triggered
+      }
+    });
+    globalStep++;
+    lastTime = t;
   }
+
+  // decay camera pulse
+  cameraPulse *= 0.85;
 }
 animate();
 
 /* ===============================
-   HANDLE RESIZE
+   RESIZE
    =============================== */
 window.addEventListener('resize', ()=>{
   camera.aspect = window.innerWidth/window.innerHeight;
@@ -157,7 +169,7 @@ window.addEventListener('resize', ()=>{
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-/* CLICK TO START AUDIO CONTEXT */
+/* CLICK TO START AUDIO */
 document.body.addEventListener('click', ()=>{
   if(audioCtx.state === 'suspended') audioCtx.resume();
 });
