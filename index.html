@@ -335,6 +335,52 @@ function updateCirclesVisuals(){
 const miniMap=document.getElementById("miniMap");
 const miniCtx=miniMap.getContext("2d");
 function updateMiniMap(){
+  // -------------------- MINI-MAP CLICK + DRAG TO MOVE INDIVIDUAL CIRCLES --------------------
+let draggingIndex = null;
+
+function miniMapToWorld(x, y) {
+    const worldX = (x / miniMap.width) * floorSize - floorSize / 2;
+    const worldZ = (y / miniMap.height) * floorSize - floorSize / 2;
+    return { worldX, worldZ };
+}
+
+miniMap.addEventListener("mousedown", (e) => {
+    const rect = miniMap.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Detect if clicking a circle
+    for (let i = 0; i < circles.length; i++) {
+        const cx = (circles[i].mesh.position.x + floorSize/2) / floorSize * miniMap.width;
+        const cy = (circles[i].mesh.position.z + floorSize/2) / floorSize * miniMap.height;
+        const dx = mx - cx;
+        const dy = my - cy;
+        if (dx*dx + dy*dy < 25) { // within radius=5 on minimap
+            draggingIndex = i;
+            break;
+        }
+    }
+});
+
+miniMap.addEventListener("mousemove", (e) => {
+    if (draggingIndex === null) return;
+
+    const rect = miniMap.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Convert & move selected circle
+    const { worldX, worldZ } = miniMapToWorld(mx, my);
+    circles[draggingIndex].mesh.position.set(worldX, 1, worldZ);
+});
+
+miniMap.addEventListener("mouseup", () => {
+    draggingIndex = null;
+});
+miniMap.addEventListener("mouseleave", () => {
+    draggingIndex = null;
+});
+
   // -------------------- MINI-MAP CLICK TO PLACE SOUND --------------------
 miniMap.addEventListener("click", (e)=>{
     const rect = miniMap.getBoundingClientRect();
