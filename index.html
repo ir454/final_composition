@@ -422,11 +422,13 @@ function updateCirclesVisuals(){
     }
 }
 
-/* ============================================================
-   MINI-MAP — Option C (Click selects circle → drag to move it)
-   ============================================================ */
+  // -------------------- MINI-MAP --------------------
 const miniMap = document.getElementById("miniMap");
 const miniCtx = miniMap.getContext("2d");
+
+// FIX: Match rendered resolution to actual CSS size
+miniMap.width = miniMap.clientWidth;
+miniMap.height = miniMap.clientHeight;
 
 let selectedCircleIndex = null;
 let dragging = false;
@@ -437,10 +439,11 @@ function miniMapToWorld(mx, my){
     return {worldX, worldZ};
 }
 
+// -------------------- CLICK SELECT --------------------
 miniMap.addEventListener("mousedown", (e)=>{
     const rect = miniMap.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const mx = (e.clientX - rect.left) * (miniMap.width / rect.width);
+    const my = (e.clientY - rect.top) * (miniMap.height / rect.height);
 
     selectedCircleIndex = null;
     dragging = false;
@@ -460,17 +463,19 @@ miniMap.addEventListener("mousedown", (e)=>{
     }
 });
 
+// -------------------- DRAG --------------------
 miniMap.addEventListener("mousemove", (e)=>{
     if(!dragging || selectedCircleIndex === null) return;
 
     const rect = miniMap.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const mx = (e.clientX - rect.left) * (miniMap.width / rect.width);
+    const my = (e.clientY - rect.top) * (miniMap.height / rect.height);
 
     const {worldX, worldZ} = miniMapToWorld(mx, my);
     circles[selectedCircleIndex].mesh.position.set(worldX, 1, worldZ);
 });
 
+// -------------------- RELEASE --------------------
 miniMap.addEventListener("mouseup", ()=>{
     dragging = false;
     selectedCircleIndex = null;
@@ -481,33 +486,7 @@ miniMap.addEventListener("mouseleave", ()=>{
     selectedCircleIndex = null;
 });
 
-/* Draw mini-map */
-function updateMiniMap(){
-    miniCtx.clearRect(0,0,miniMap.width,miniMap.height);
-    miniCtx.fillStyle="#111";
-    miniCtx.fillRect(0,0,miniMap.width,miniMap.height);
 
-    // draw circles
-    circles.forEach((c,i)=>{
-        const x = (c.mesh.position.x + floorSize/2) / floorSize * miniMap.width;
-        const y = (c.mesh.position.z + floorSize/2) / floorSize * miniMap.height;
-
-        miniCtx.fillStyle = i === selectedCircleIndex ? "white" :
-            `#${neonColors[i].toString(16).padStart(6,'0')}`;
-        miniCtx.beginPath();
-        miniCtx.arc(x, y, 5, 0, Math.PI*2);
-        miniCtx.fill();
-    });
-
-    // user
-    const ux = (camera.position.x + floorSize/2) / floorSize * miniMap.width;
-    const uy = (camera.position.z + floorSize/2) / floorSize * miniMap.height;
-
-    miniCtx.fillStyle="red";
-    miniCtx.beginPath();
-    miniCtx.arc(ux, uy, 5, 0, Math.PI*2);
-    miniCtx.fill();
-}
 
 /* ============================================================
    DRUM MACHINE + VISUAL RANDOM EFFECTS
