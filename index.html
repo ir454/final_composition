@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Escher Audio-Visual Sculpture - Moving Polyphonic Symphony</title>
+<title>Escher Wireframe Building Sculpture</title>
 <style>
     body { margin:0; overflow:hidden; background-color:#111; }
     canvas { display:block; }
@@ -18,7 +18,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0, 5, 25);
+camera.position.set(15, 15, 35);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -28,7 +28,7 @@ const ambientLight = new THREE.AmbientLight(0xffffff,0.5);
 scene.add(ambientLight);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff,0.8);
-directionalLight.position.set(5,10,7);
+directionalLight.position.set(10,20,10);
 scene.add(directionalLight);
 
 /* ===============================
@@ -36,18 +36,15 @@ scene.add(directionalLight);
    =============================== */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-/* Chords in C minor scale */
 const chords = {
-    Cm: [261.63, 311.13, 392.00, 523.25], // C, Eb, G, C5
-    Fm: [349.23, 415.30, 466.16, 698.46], // F, Ab, C, F5
-    G: [392.00, 493.88, 587.33, 784.00]   // G, B, D, G5
+    Cm: [261.63, 311.13, 392.00, 523.25], 
+    Fm: [349.23, 415.30, 466.16, 698.46], 
+    G: [392.00, 493.88, 587.33, 784.00]   
 };
 
-/* Chord progression */
 const progression = ['Cm','Fm','G','Cm'];
 let chordIndex = 0;
 
-/* Play short note at 3D position */
 function playNote(freq,x,y,z,duration=0.3){
     const osc = audioCtx.createOscillator();
     osc.type='sine';
@@ -69,42 +66,48 @@ function playNote(freq,x,y,z,duration=0.3){
 }
 
 /* ===============================
-   Create Sculpture with Moving Cubes
+   Create Wireframe Building Sculpture
    =============================== */
 const sculpture = new THREE.Group();
 scene.add(sculpture);
 
 const geometry = new THREE.BoxGeometry(1,1,1);
-const material = new THREE.MeshStandardMaterial({color:0x00ffcc,roughness:0.3});
+const material = new THREE.MeshBasicMaterial({color:0x00ffcc, wireframe:true});
 
 const cubeData=[];
-const size=5;
 
-for(let x=-size;x<=size;x+=2){
-    for(let y=0;y<=size*2;y+=2){
-        for(let z=-size;z<=size;z+=2){
-            const cube = new THREE.Mesh(geometry, material);
-            sculpture.add(cube);
+/* Staggered building design: stacked towers with cantilever cubes */
+const towerCount = 4;
+const towerHeight = 8;
 
-            const voices=[];
-            for(let v=0;v<2;v++){
-                voices.push({
-                    chordStep: Math.floor(Math.random()*4),
-                    offset: Math.random()*2,
-                    interval: 0.5 + Math.random()*0.8
-                });
-            }
+for(let t=0;t<towerCount;t++){
+    const towerX = (t - (towerCount-1)/2)*4; // spread towers on X
+    for(let y=0;y<towerHeight;y++){
+        // Random stagger and offset for cantilever effect
+        const zOffset = (Math.random()-0.5)*2;
+        const xOffset = (Math.random()-0.5)*2;
+        const cube = new THREE.Mesh(geometry, material);
+        sculpture.add(cube);
 
-            // Assign each cube a motion path: sin + cos for "impossible staircases"
-            cubeData.push({
-                cube: cube,
-                baseX: x + (y%4)*0.3,
-                baseY: y,
-                baseZ: z + (x%4)*0.3,
-                voices: voices,
-                motionOffset: Math.random()*Math.PI*2 // phase shift
+        cube.position.set(towerX + xOffset, y, zOffset);
+
+        const voices=[];
+        for(let v=0;v<2;v++){
+            voices.push({
+                chordStep: Math.floor(Math.random()*4),
+                offset: Math.random()*2,
+                interval: 0.5 + Math.random()*0.8
             });
         }
+
+        cubeData.push({
+            cube: cube,
+            baseX: cube.position.x,
+            baseY: cube.position.y,
+            baseZ: cube.position.z,
+            voices: voices,
+            motionOffset: Math.random()*Math.PI*2
+        });
     }
 }
 
@@ -118,17 +121,15 @@ function animate(){
 
     sculpture.children.forEach((cube,idx)=>{
         const data = cubeData[idx];
-        // Impossible staircase motion
-        const radius = 0.5 + 0.5*Math.sin(t + data.motionOffset);
-        cube.position.x = data.baseX + radius * Math.sin(t + idx*0.1);
-        cube.position.y = data.baseY + 0.5*Math.sin(t*1.2 + idx*0.2);
-        cube.position.z = data.baseZ + radius * Math.cos(t + idx*0.1);
+        // Slight floating motion for dynamic architecture
+        cube.position.x = data.baseX + 0.3*Math.sin(t + idx*0.2);
+        cube.position.y = data.baseY + 0.2*Math.sin(t*1.5 + idx*0.3);
+        cube.position.z = data.baseZ + 0.3*Math.cos(t + idx*0.2);
 
-        const scale = 0.8 + 0.2*Math.sin(t + idx*0.3);
+        const scale = 0.9 + 0.1*Math.sin(t + idx*0.3);
         cube.scale.set(scale,scale,scale);
     });
 
-    // Update listener
     if(audioCtx.listener.positionX){
         audioCtx.listener.positionX.setValueAtTime(camera.position.x,audioCtx.currentTime);
         audioCtx.listener.positionY.setValueAtTime(camera.position.y,audioCtx.currentTime);
@@ -137,7 +138,6 @@ function animate(){
 
     const now = audioCtx.currentTime;
 
-    // Play polyphonic notes
     cubeData.forEach(c=>{
         c.voices.forEach(v=>{
             if(!v.nextTime) v.nextTime = now + v.offset;
@@ -152,32 +152,23 @@ function animate(){
         });
     });
 
-    // Advance chord progression every 8s
     if(!animate.lastChordChange) animate.lastChordChange = now;
     if(now - animate.lastChordChange > 8){
         chordIndex = (chordIndex+1)%progression.length;
         animate.lastChordChange = now;
     }
 
-    // Slowly rotate sculpture as a whole
     sculpture.rotation.y += 0.0015;
-
     renderer.render(scene,camera);
 }
 animate();
 
-/* ===============================
-   Handle Resize
-   =============================== */
 window.addEventListener('resize',()=>{
     camera.aspect = window.innerWidth/window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth,window.innerHeight);
 });
 
-/* ===============================
-   Click to Resume Audio
-   =============================== */
 document.body.addEventListener('click',()=>{
     if(audioCtx.state==='suspended') audioCtx.resume();
 });
