@@ -74,7 +74,7 @@ for(let i=0;i<shapeCount;i++){
   mesh.position.set((Math.random()-0.5)*spread,(Math.random()-0.5)*spread,(Math.random()-0.5)*spread);
   mesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
   sculpture.add(mesh);
-  shapes.push({mesh, phase: Math.random()*Math.PI*2});
+  shapes.push({mesh, phase: Math.random()*Math.PI*2, baseScale: mesh.scale.clone()});
 }
 
 /* ===============================
@@ -108,9 +108,7 @@ function playNote(freq,shape){
 =============================== */
 const controls = new THREE.PointerLockControls(camera, document.body);
 const instructions = document.getElementById('instructions');
-instructions.addEventListener('click', () => {
-  controls.lock();
-});
+instructions.addEventListener('click', () => { controls.lock(); });
 
 controls.addEventListener('lock', () => { instructions.style.display = 'none'; });
 controls.addEventListener('unlock', () => { instructions.style.display = ''; });
@@ -163,8 +161,21 @@ function animate(){
   raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
   const intersects = raycaster.intersectObjects(shapes.map(s=>s.mesh));
   const cross = document.getElementById('crosshair');
+
+  shapes.forEach(s => {
+    // Reset scale
+    s.mesh.scale.lerp(s.baseScale, 0.1);
+  });
+
   if(intersects.length>0){
-    cross.style.backgroundColor='#ff4444'; // red when pointing at torus
+    cross.style.backgroundColor='#ff4444'; // red
+    // Pulse the first intersected torus
+    const target = intersects[0].object;
+    const shape = shapes.find(s=>s.mesh===target);
+    if(shape){
+      const scaleFactor = 1 + 0.3*Math.sin(t*10);
+      shape.mesh.scale.setScalar(scaleFactor);
+    }
   } else {
     cross.style.backgroundColor='transparent';
   }
