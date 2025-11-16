@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Simple Möbius Sculpture</title>
+<title>Möbius Sculpture</title>
 <style>
   body { margin:0; overflow:hidden; background:#111; }
   canvas { display:block; }
@@ -10,11 +10,10 @@
 </head>
 <body>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-
 <script>
 /* ===============================
    THREE.JS SETUP
-   =============================== */
+=============================== */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
@@ -26,12 +25,11 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 /* LIGHT */
-const ambientLight = new THREE.AmbientLight(0xffffff,0.5);
-scene.add(ambientLight);
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
 
 /* ===============================
    CREATE MÖBIUS STRIPS
-   =============================== */
+=============================== */
 const sculpture = new THREE.Group();
 scene.add(sculpture);
 
@@ -40,17 +38,16 @@ const shapeCount = 15;
 const spread = 10;
 
 function createMobius(radius,tube,p,q){
-  const geom = new THREE.MobiusStripGeometry(radius,tube,12,60,p,q);
+  const geom = new THREE.MobiusStripGeometry(radius,tube,8,30,p,q);
   const mat = new THREE.MeshStandardMaterial({color:0x00ffcc, wireframe:true});
-  const mesh = new THREE.Mesh(geom, mat);
-  return mesh;
+  return new THREE.Mesh(geom, mat);
 }
 
 for(let i=0;i<shapeCount;i++){
   const radius = 0.5 + Math.random()*1.5;
   const tube = 0.1 + Math.random()*0.3;
   const p = Math.random()*2*Math.PI;
-  const q = 1 + Math.floor(Math.random()*3);
+  const q = 1 + Math.floor(Math.random()*2);
 
   const mesh = createMobius(radius,tube,p,q);
   mesh.position.set((Math.random()-0.5)*spread,(Math.random()-0.5)*spread,(Math.random()-0.5)*spread);
@@ -61,8 +58,8 @@ for(let i=0;i<shapeCount;i++){
 }
 
 /* ===============================
-   WEB AUDIO SETUP
-   =============================== */
+   WEB AUDIO
+=============================== */
 const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 const Cminor = [261.63,311.13,392,466,523];
 let step=0;
@@ -88,18 +85,16 @@ function playNote(freq,shape){
 
 /* ===============================
    ANIMATE
-   =============================== */
+=============================== */
 function animate(){
   requestAnimationFrame(animate);
   const t = performance.now()*0.001;
 
   shapes.forEach((s,i)=>{
-    // simple rotation
     s.mesh.rotation.x += 0.01 + 0.01*Math.sin(t+s.phase);
     s.mesh.rotation.y += 0.01 + 0.01*Math.cos(t+s.phase);
   });
 
-  // camera flythrough
   camera.position.x = Math.sin(t*0.5)*15;
   camera.position.y = 5 + Math.sin(t*0.3)*5;
   camera.position.z = Math.cos(t*0.5)*15;
@@ -107,12 +102,11 @@ function animate(){
 
   renderer.render(scene,camera);
 
-  // simple sequencer
+  // Sequencer
   if(Math.floor(t*4) > step){
     shapes.forEach((s,i)=>{
       if((step+i)%5===0){
-        const freq = Cminor[i%Cminor.length];
-        playNote(freq,s);
+        playNote(Cminor[i%Cminor.length], s);
       }
     });
     step = Math.floor(t*4);
