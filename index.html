@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Majical Dancing Wireframe Cubes</title>
+<title>Full-Screen Majical Wireframe Cubes</title>
 <style>
   body { margin:0; overflow:hidden; background:#111; }
   canvas { display:block; }
@@ -17,22 +17,21 @@
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(20, 20, 40);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 200);
+camera.position.set(30, 30, 50);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 /* LIGHTS */
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambientLight);
-const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
-directionalLight.position.set(30,50,30);
-scene.add(directionalLight);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
+dirLight.position.set(50,80,50);
+scene.add(dirLight);
 
 /* ===============================
-   CREATE WIRE FRAME BUILDING
+   CREATE FULL-SCREEN WIRE FRAME CUBES
    =============================== */
 const sculpture = new THREE.Group();
 scene.add(sculpture);
@@ -41,65 +40,112 @@ const cubeGeometry = new THREE.BoxGeometry(1,1,1);
 const cubeMaterial = new THREE.MeshBasicMaterial({color:0x00ffcc, wireframe:true});
 
 const cubes = [];
-const towerCount = 4;
-const towerHeight = 6;
+const gridSizeX = 15;
+const gridSizeY = 10;
+const gridSizeZ = 15;
+const spacing = 2;
 
-for(let t=0; t<towerCount; t++){
-  const towerX = (t - (towerCount-1)/2)*4;
-  for(let y=0; y<towerHeight; y++){
-    const zOffset = (Math.random()-0.5)*2;
-    const xOffset = (Math.random()-0.5)*2;
-    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    cube.position.set(towerX + xOffset, y, zOffset);
-    sculpture.add(cube);
+for(let x=0; x<gridSizeX; x++){
+  for(let y=0; y<gridSizeY; y++){
+    for(let z=0; z<gridSizeZ; z++){
+      const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      const posX = (x - gridSizeX/2) * spacing + (Math.random()-0.5)*0.5;
+      const posY = (y - gridSizeY/2) * spacing + (Math.random()-0.5)*0.5;
+      const posZ = (z - gridSizeZ/2) * spacing + (Math.random()-0.5)*0.5;
+      cube.position.set(posX,posY,posZ);
+      sculpture.add(cube);
 
-    cubes.push({
-      mesh: cube,
-      basePos: cube.position.clone(),
-      phase: Math.random()*Math.PI*2,
-      speed: 0.5 + Math.random()
-    });
+      cubes.push({
+        mesh: cube,
+        basePos: cube.position.clone(),
+        phase: Math.random()*Math.PI*2,
+        scalePulse: 0
+      });
+    }
   }
 }
 
 /* ===============================
-   DANCING ANIMATION FUNCTION
+   WEB AUDIO SETUP
+   =============================== */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+const Cminor = [261.63, 311.13, 392.00, 523.25]; // C, Eb, G, C5
+let cubeIndex = 0;
+
+function playNote(freq, cube){
+  const osc = audioCtx.createOscillator();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+  const gain = audioCtx.createGain();
+  gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+
+  const panner = audioCtx.createPanner();
+  panner.panningModel = 'HRTF';
+  panner.distanceModel = 'inverse';
+  panner.positionX.setValueAtTime(cube.mesh.position.x, audioCtx.currentTime);
+  panner.positionY.setValueAtTime(cube.mesh.position.y, audioCtx.currentTime);
+  panner.positionZ.setValueAtTime(cube.mesh.position.z, audioCtx.currentTime);
+
+  osc.connect(panner).connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.2);
+
+  cube.scalePulse = 0.4;
+}
+
+/* ===============================
+   ANIMATE SCENE
    =============================== */
 function animate(){
   requestAnimationFrame(animate);
   const t = performance.now()*0.001;
 
-  cubes.forEach(c=>{
-    // magical dancing motion
-    const floatX = Math.sin(t*c.speed + c.phase)*0.7;
-    const floatY = Math.cos(t*c.speed*1.2 + c.phase)*0.5;
-    const floatZ = Math.sin(t*c.speed*0.8 + c.phase)*0.7;
-
+  cubes.forEach((c)=>{
+    // floating motion
+    const floatX = Math.sin(t + c.phase)*0.3;
+    const floatY = Math.cos(t*1.5 + c.phase)*0.2;
+    const floatZ = Math.sin(t*0.8 + c.phase)*0.3;
     c.mesh.position.x = c.basePos.x + floatX;
     c.mesh.position.y = c.basePos.y + floatY;
     c.mesh.position.z = c.basePos.z + floatZ;
 
-    // rotation for extra magic
-    c.mesh.rotation.x = t*c.speed*0.3 + c.phase;
-    c.mesh.rotation.y = t*c.speed*0.4 + c.phase;
+    // rotation
+    c.mesh.rotation.x = t*0.2 + c.phase;
+    c.mesh.rotation.y = t*0.25 + c.phase;
 
-    // pulsing scale
-    const scale = 0.8 + 0.2*Math.sin(t*2 + c.phase);
+    // scale pulse
+    c.scalePulse *= 0.9;
+    const scale = 0.7 + 0.2*Math.sin(t*2 + c.phase) + c.scalePulse;
     c.mesh.scale.set(scale, scale, scale);
   });
 
   sculpture.rotation.y += 0.0015;
   renderer.render(scene, camera);
+
+  // Play notes periodically
+  if(!animate.lastPlay) animate.lastPlay = t;
+  if(t - animate.lastPlay > 0.2){
+    const freq = Cminor[Math.floor(Math.random()*Cminor.length)];
+    playNote(freq, cubes[cubeIndex]);
+    cubeIndex = (cubeIndex + 1) % cubes.length;
+    animate.lastPlay = t;
+  }
 }
 animate();
 
 /* ===============================
    HANDLE RESIZE
    =============================== */
-window.addEventListener('resize',()=>{
+window.addEventListener('resize', ()=>{
   camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* CLICK TO START AUDIO CONTEXT */
+document.body.addEventListener('click', ()=>{
+  if(audioCtx.state === 'suspended') audioCtx.resume();
 });
 </script>
 </body>
