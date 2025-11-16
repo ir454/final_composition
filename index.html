@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Full-Screen Majical Wireframe Cubes</title>
+<title>Melodic Sequencer Sculpture</title>
 <style>
   body { margin:0; overflow:hidden; background:#111; }
   canvas { display:block; }
@@ -17,8 +17,8 @@
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 200);
-camera.position.set(30, 30, 50);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.set(0, 10, 25);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
@@ -27,11 +27,11 @@ document.body.appendChild(renderer.domElement);
 /* LIGHTS */
 scene.add(new THREE.AmbientLight(0xffffff, 0.5));
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
-dirLight.position.set(50,80,50);
+dirLight.position.set(30,50,30);
 scene.add(dirLight);
 
 /* ===============================
-   CREATE FULL-SCREEN WIRE FRAME CUBES
+   CREATE SMALL CENTERED SCULPTURE
    =============================== */
 const sculpture = new THREE.Group();
 scene.add(sculpture);
@@ -40,28 +40,24 @@ const cubeGeometry = new THREE.BoxGeometry(1,1,1);
 const cubeMaterial = new THREE.MeshBasicMaterial({color:0x00ffcc, wireframe:true});
 
 const cubes = [];
-const gridSizeX = 15;
-const gridSizeY = 10;
-const gridSizeZ = 15;
+const gridX = 5;
+const gridY = 4;
 const spacing = 2;
 
-for(let x=0; x<gridSizeX; x++){
-  for(let y=0; y<gridSizeY; y++){
-    for(let z=0; z<gridSizeZ; z++){
-      const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-      const posX = (x - gridSizeX/2) * spacing + (Math.random()-0.5)*0.5;
-      const posY = (y - gridSizeY/2) * spacing + (Math.random()-0.5)*0.5;
-      const posZ = (z - gridSizeZ/2) * spacing + (Math.random()-0.5)*0.5;
-      cube.position.set(posX,posY,posZ);
-      sculpture.add(cube);
+for(let x=0; x<gridX; x++){
+  for(let y=0; y<gridY; y++){
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    const posX = (x - (gridX-1)/2)*spacing;
+    const posY = (y - (gridY-1)/2)*spacing;
+    cube.position.set(posX, posY, 0);
+    sculpture.add(cube);
 
-      cubes.push({
-        mesh: cube,
-        basePos: cube.position.clone(),
-        phase: Math.random()*Math.PI*2,
-        scalePulse: 0
-      });
-    }
+    cubes.push({
+      mesh: cube,
+      basePos: cube.position.clone(),
+      phase: Math.random()*Math.PI*2,
+      scalePulse: 0
+    });
   }
 }
 
@@ -89,9 +85,9 @@ function playNote(freq, cube){
 
   osc.connect(panner).connect(gain).connect(audioCtx.destination);
   osc.start();
-  osc.stop(audioCtx.currentTime + 0.2);
+  osc.stop(audioCtx.currentTime + 0.25);
 
-  cube.scalePulse = 0.4;
+  cube.scalePulse = 0.5;
 }
 
 /* ===============================
@@ -102,31 +98,29 @@ function animate(){
   const t = performance.now()*0.001;
 
   cubes.forEach((c)=>{
-    // floating motion
-    const floatX = Math.sin(t + c.phase)*0.3;
+    // subtle floating motion
+    const floatX = Math.sin(t + c.phase)*0.2;
     const floatY = Math.cos(t*1.5 + c.phase)*0.2;
-    const floatZ = Math.sin(t*0.8 + c.phase)*0.3;
     c.mesh.position.x = c.basePos.x + floatX;
     c.mesh.position.y = c.basePos.y + floatY;
-    c.mesh.position.z = c.basePos.z + floatZ;
 
     // rotation
     c.mesh.rotation.x = t*0.2 + c.phase;
     c.mesh.rotation.y = t*0.25 + c.phase;
 
     // scale pulse
-    c.scalePulse *= 0.9;
-    const scale = 0.7 + 0.2*Math.sin(t*2 + c.phase) + c.scalePulse;
+    c.scalePulse *= 0.85;
+    const scale = 0.8 + c.scalePulse;
     c.mesh.scale.set(scale, scale, scale);
   });
 
   sculpture.rotation.y += 0.0015;
   renderer.render(scene, camera);
 
-  // Play notes periodically
+  // Melodic sequencer: play each cube in order
   if(!animate.lastPlay) animate.lastPlay = t;
-  if(t - animate.lastPlay > 0.2){
-    const freq = Cminor[Math.floor(Math.random()*Cminor.length)];
+  if(t - animate.lastPlay > 0.3){
+    const freq = Cminor[cubeIndex % Cminor.length];
     playNote(freq, cubes[cubeIndex]);
     cubeIndex = (cubeIndex + 1) % cubes.length;
     animate.lastPlay = t;
