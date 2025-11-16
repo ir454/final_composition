@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Interactive Audio-Visual Sculpture</title>
+<title>Immersive Audio-Visual Sculpture</title>
 <style>
   body { margin:0; overflow:hidden; background:#111; }
   canvas { display:block; }
@@ -10,12 +10,17 @@
 </head>
 <body>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
 <script>
 /* ===============================
    THREE.JS SETUP
    =============================== */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
+scene.fog = new THREE.FogExp2(0x111111, 0.02);
 
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 500);
 camera.position.set(0,5,30);
@@ -24,10 +29,26 @@ const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+/* POST-PROCESSING BLOOM */
+const composer = new THREE.EffectComposer(renderer);
+const renderPass = new THREE.RenderPass(scene, camera);
+composer.addPass(renderPass);
+const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.8, 0.5, 0.8);
+composer.addPass(bloomPass);
+
+/* LIGHTS */
+scene.add(new THREE.AmbientLight(0xffffff, 0.3));
 const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
 dirLight.position.set(50,100,50);
 scene.add(dirLight);
+
+const pulseLights = [];
+for(let i=0;i<5;i++){
+  const light = new THREE.PointLight(0x00ffcc, 0.5, 30);
+  light.position.set(Math.random()*40-20, Math.random()*20-10, Math.random()*40-20);
+  scene.add(light);
+  pulseLights.push(light);
+}
 
 /* ===============================
    SCULPTURE WITH VARIOUS SHAPES
@@ -37,7 +58,7 @@ scene.add(sculpture);
 
 const shapes = ['box','sphere','cone','torus','cylinder'];
 const cubes = [];
-const shapeCount = 60;
+const shapeCount = 50;
 const spread = 20;
 
 for(let i=0; i<shapeCount; i++){
@@ -51,7 +72,12 @@ for(let i=0; i<shapeCount; i++){
     case 'cylinder': geom = new THREE.CylinderGeometry(0.5,0.5,1.5,10); break;
   }
 
-  const mat = new THREE.MeshBasicMaterial({color:0x00ffcc, wireframe:true});
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0x00ffcc,
+    wireframe:true,
+    emissive: 0x00ffcc,
+    emissiveIntensity: 0.3
+  });
   const mesh = new THREE.Mesh(geom, mat);
 
   mesh.position.set(
@@ -68,6 +94,7 @@ for(let i=0; i<shapeCount; i++){
     basePos: mesh.position.clone(),
     phase: Math.random()*Math.PI*2,
     scalePulse: 0,
+    colorPulse: 0,
     seqOffset: Math.floor(Math.random()*20)
   });
 }
@@ -77,9 +104,10 @@ for(let i=0; i<shapeCount; i++){
    =============================== */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 const Cminor = [261.63, 311.13, 392.00, 466.16, 523.25]; // C, Eb, G, Bb, C5
+const colorMap = [0xff5555, 0xffaa00, 0xffff55, 0x55ff55, 0x55aaff];
 let globalStep = 0;
 
-function playNote(freq, cube){
+function playNote(freq, cube, noteIndex){
   const osc = audioCtx.createOscillator();
   osc.type = 'sine';
   osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
@@ -98,7 +126,15 @@ function playNote(freq, cube){
   osc.start();
   osc.stop(audioCtx.currentTime + 0.25);
 
-  cube.scalePulse = 0.6; // strong pulse
+  cube.scalePulse = 0.6;
+  cube.colorPulse = 1;
+  cube.targetColor = colorMap[noteIndex % colorMap.length];
+
+  // pulse lights
+  pulseLights.forEach((l,i)=>{
+    l.intensity = 0.5 + Math.random()*0.5;
+    l.color.setHex(colorMap[(noteIndex+i)%colorMap.length]);
+  });
 }
 
 /* ===============================
@@ -112,7 +148,7 @@ function animate(){
   requestAnimationFrame(animate);
   const t = performance.now()*0.001;
 
-  // Animate cubes: floating, rotation, staggered scale pulse
+  // Animate cubes
   cubes.forEach((c)=>{
     const floatX = Math.sin(t*1.2 + c.phase)*0.4;
     const floatY = Math.cos(t*0.9 + c.phase)*0.4;
@@ -124,12 +160,23 @@ function animate(){
     c.mesh.rotation.x += 0.01 + 0.01*Math.sin(t + c.seqOffset);
     c.mesh.rotation.y += 0.01 + 0.01*Math.cos(t + c.seqOffset);
 
+    // scale pulse
     c.scalePulse *= 0.85;
     const scale = 0.8 + 0.3*Math.sin(t + c.seqOffset*0.5) + c.scalePulse;
     c.mesh.scale.set(scale, scale, scale);
+
+    // color pulse
+    if(c.colorPulse > 0){
+      c.mesh.material.emissive.setHex(c.targetColor);
+      c.mesh.material.color.setHex(c.targetColor);
+      c.colorPulse *= 0.8;
+    } else {
+      c.mesh.material.emissive.setHex(0x00ffcc);
+      c.mesh.material.color.setHex(0x00ffcc);
+    }
   });
 
-  // Camera responds to pulse rhythm
+  // Camera moves through scene
   cameraTime += 0.005;
   const pulseFactor = 1 + cameraPulse*0.5;
   camera.position.x = (Math.sin(cameraTime*1.2)*25 + Math.sin(cameraTime*0.7)*10)*pulseFactor;
@@ -139,23 +186,22 @@ function animate(){
 
   sculpture.rotation.y += 0.001;
 
-  renderer.render(scene, camera);
+  composer.render();
 
-  // Sequencer rhythm: staggered
+  // Sequencer rhythm
   if(!lastTime) lastTime = t;
   if(t - lastTime > 0.15){
     cubes.forEach((c, i)=>{
       if((globalStep + c.seqOffset) % 20 === 0){
         const freq = Cminor[i % Cminor.length];
-        playNote(freq, c);
-        cameraPulse = 1; // camera pulse triggered
+        playNote(freq, c, i);
+        cameraPulse = 1;
       }
     });
     globalStep++;
     lastTime = t;
   }
 
-  // decay camera pulse
   cameraPulse *= 0.85;
 }
 animate();
@@ -167,6 +213,7 @@ window.addEventListener('resize', ()=>{
   camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 });
 
 /* CLICK TO START AUDIO */
