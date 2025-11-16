@@ -166,7 +166,8 @@ function updateMovement(){
 let audioCtx, audioStarted=false;
 const circleAudio=[];
 
-const baseMelody = [261.63, 311.13, 349.23, 392.00, 466.16];
+// --- C-minor pentatonic lowered one octave ---
+const baseMelody = [261.63, 311.13, 349.23, 392.00, 466.16].map(n => n * 0.5); // ↓ one octave
 const melody = [];
 for(let o=0;o<3;o++){ 
     const octaveMul = Math.pow(2,o);
