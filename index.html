@@ -2,29 +2,29 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Interactive Torus Sculpture FPS</title>
+<title>Immersive Audio-Visual Experience</title>
 <style>
   body { margin:0; overflow:hidden; background:#111; }
   canvas { display:block; }
   #crosshair {
-    position: absolute;
-    top: 50%; left: 50%;
-    width: 20px; height: 20px;
-    margin-left: -10px; margin-top: -10px;
-    pointer-events: none;
+    position:absolute;
+    top:50%; left:50%;
+    width:20px; height:20px;
+    margin-left:-10px; margin-top:-10px;
+    pointer-events:none;
   }
   #crosshair:before, #crosshair:after {
-    content: '';
-    position: absolute;
-    background: #00ffcc;
+    content:'';
+    position:absolute;
+    background:#00ffcc;
   }
-  #crosshair:before { left: 50%; top:0; width:2px; height:100%; transform: translateX(-50%); }
-  #crosshair:after { top: 50%; left:0; width:100%; height:2px; transform: translateY(-50%); }
+  #crosshair:before { left:50%; top:0; width:2px; height:100%; transform:translateX(-50%); }
+  #crosshair:after { top:50%; left:0; width:100%; height:2px; transform:translateY(-50%); }
   #instructions {
-    position: absolute;
-    width: 100%; text-align:center;
-    top: 50%; color:#00ffcc;
-    font-family: sans-serif; font-size: 24px;
+    position:absolute;
+    width:100%; text-align:center;
+    top:50%; color:#00ffcc;
+    font-family:sans-serif; font-size:24px;
   }
 </style>
 </head>
@@ -35,9 +35,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/PointerLockControls.js"></script>
 <script>
-/* ===============================
-   THREE.JS SETUP
-=============================== */
+/* ========== THREE.JS SETUP ========== */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
@@ -48,17 +46,14 @@ const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-/* LIGHT */
 scene.add(new THREE.AmbientLight(0xffffff,0.5));
 
-/* ===============================
-   TORUSES
-=============================== */
+/* ========== TORUS SCULPTURE ========== */
 const sculpture = new THREE.Group();
 scene.add(sculpture);
 
 const shapes = [];
-const shapeCount = 15;
+const shapeCount = 20;
 const spread = 20;
 
 function createTorus(radius,tube){
@@ -77,9 +72,7 @@ for(let i=0;i<shapeCount;i++){
   shapes.push({mesh, phase: Math.random()*Math.PI*2, baseScale: mesh.scale.clone()});
 }
 
-/* ===============================
-   WEB AUDIO
-=============================== */
+/* ========== WEB AUDIO ========== */
 const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
 const Cminor = [261.63,311.13,392,466,523];
 let step=0;
@@ -103,56 +96,53 @@ function playNote(freq,shape){
   osc.stop(audioCtx.currentTime+0.2);
 }
 
-/* ===============================
-   FPS CONTROLS
-=============================== */
+/* ========== FPS CONTROLS ========== */
 const controls = new THREE.PointerLockControls(camera, document.body);
 const instructions = document.getElementById('instructions');
-instructions.addEventListener('click', () => { controls.lock(); });
+instructions.addEventListener('click',()=>{ controls.lock(); });
 
-controls.addEventListener('lock', () => { instructions.style.display = 'none'; });
-controls.addEventListener('unlock', () => { instructions.style.display = ''; });
+controls.addEventListener('lock',()=>{ instructions.style.display='none'; });
+controls.addEventListener('unlock',()=>{ instructions.style.display=''; });
 
 const velocity = new THREE.Vector3();
 const direction = new THREE.Vector3();
-const move = { forward:false, backward:false, left:false, right:false };
+const move = {forward:false, backward:false, left:false, right:false};
 
-document.addEventListener('keydown', e => {
+document.addEventListener('keydown', e=>{
   if(e.code==='KeyW') move.forward=true;
   if(e.code==='KeyS') move.backward=true;
   if(e.code==='KeyA') move.left=true;
   if(e.code==='KeyD') move.right=true;
 });
-document.addEventListener('keyup', e => {
+document.addEventListener('keyup', e=>{
   if(e.code==='KeyW') move.forward=false;
   if(e.code==='KeyS') move.backward=false;
   if(e.code==='KeyA') move.left=false;
   if(e.code==='KeyD') move.right=false;
 });
 
-/* ===============================
-   ANIMATE
-=============================== */
+/* ========== ANIMATION LOOP ========== */
 const clock = new THREE.Clock();
 function animate(){
   requestAnimationFrame(animate);
   const t = clock.getElapsedTime();
 
-  // Rotate toruses
+  // Rotate and pulse shapes
   shapes.forEach((s,i)=>{
     s.mesh.rotation.x += 0.01 + 0.01*Math.sin(t+s.phase);
     s.mesh.rotation.y += 0.01 + 0.01*Math.cos(t+s.phase);
+    s.mesh.scale.lerp(s.baseScale,0.1); // reset scale
   });
 
-  // Movement
+  // FPS movement
   const delta = clock.getDelta();
-  velocity.x -= velocity.x * 10.0 * delta;
-  velocity.z -= velocity.z * 10.0 * delta;
+  velocity.x -= velocity.x*10.0*delta;
+  velocity.z -= velocity.z*10.0*delta;
   direction.z = Number(move.forward)-Number(move.backward);
   direction.x = Number(move.right)-Number(move.left);
   direction.normalize();
-  if(move.forward || move.backward) velocity.z -= direction.z * 20.0 * delta;
-  if(move.left || move.right) velocity.x -= direction.x * 20.0 * delta;
+  if(move.forward || move.backward) velocity.z -= direction.z*20.0*delta;
+  if(move.left || move.right) velocity.x -= direction.x*20.0*delta;
   controls.moveRight(-velocity.x*delta);
   controls.moveForward(-velocity.z*delta);
 
@@ -161,47 +151,35 @@ function animate(){
   raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
   const intersects = raycaster.intersectObjects(shapes.map(s=>s.mesh));
   const cross = document.getElementById('crosshair');
-
-  shapes.forEach(s => {
-    // Reset scale
-    s.mesh.scale.lerp(s.baseScale, 0.1);
-  });
-
   if(intersects.length>0){
-    cross.style.backgroundColor='#ff4444'; // red
-    // Pulse the first intersected torus
-    const target = intersects[0].object;
-    const shape = shapes.find(s=>s.mesh===target);
+    cross.style.backgroundColor='#ff4444';
+    const shape = shapes.find(s=>s.mesh===intersects[0].object);
     if(shape){
       const scaleFactor = 1 + 0.3*Math.sin(t*10);
       shape.mesh.scale.setScalar(scaleFactor);
     }
-  } else {
-    cross.style.backgroundColor='transparent';
+  } else { cross.style.backgroundColor='transparent'; }
+
+  // Sequencer
+  if(Math.floor(t*4)>step){
+    shapes.forEach((s,i)=>{
+      if((step+i)%5===0) playNote(Cminor[i%Cminor.length], s);
+    });
+    step=Math.floor(t*4);
   }
 
   renderer.render(scene, camera);
-
-  // Sequencer
-  if(Math.floor(t*4) > step){
-    shapes.forEach((s,i)=>{
-      if((step+i)%5===0){
-        playNote(Cminor[i%Cminor.length], s);
-      }
-    });
-    step = Math.floor(t*4);
-  }
 }
 animate();
 
-/* RESIZE */
+/* ========== RESIZE ========== */
 window.addEventListener('resize',()=>{
   camera.aspect=window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
-/* START AUDIO ON CLICK */
+/* ========== START AUDIO ON CLICK ========== */
 document.body.addEventListener('click',()=>{ if(audioCtx.state==='suspended') audioCtx.resume(); });
 </script>
 </body>
