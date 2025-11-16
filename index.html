@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Optimized Breathing Möbius Sculpture</title>
+<title>Simple Möbius Sculpture</title>
 <style>
   body { margin:0; overflow:hidden; background:#111; }
   canvas { display:block; }
@@ -10,9 +10,6 @@
 </head>
 <body>
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/RenderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 
 <script>
 /* ===============================
@@ -21,50 +18,32 @@
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x111111);
 
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 500);
-camera.position.set(0,5,30);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 100);
+camera.position.set(0,5,20);
 
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-/* POST-PROCESSING BLOOM */
-const composer = new THREE.EffectComposer(renderer);
-composer.addPass(new THREE.RenderPass(scene, camera));
-composer.addPass(new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.6, 0.4, 0.6));
-
-/* LIGHTS */
-scene.add(new THREE.AmbientLight(0xffffff, 0.3));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.7);
-dirLight.position.set(50,100,50);
-scene.add(dirLight);
-
-/* PULSE LIGHTS */
-const pulseLights = [];
-for(let i=0;i<3;i++){
-  const light = new THREE.PointLight(0x00ffcc, 0.5, 30);
-  light.position.set(Math.random()*30-15, Math.random()*15-7.5, Math.random()*30-15);
-  scene.add(light);
-  pulseLights.push(light);
-}
+/* LIGHT */
+const ambientLight = new THREE.AmbientLight(0xffffff,0.5);
+scene.add(ambientLight);
 
 /* ===============================
-   SCULPTURE WITH OPTIMIZED MÖBIUS STRIPS
+   CREATE MÖBIUS STRIPS
    =============================== */
 const sculpture = new THREE.Group();
 scene.add(sculpture);
 
 const shapes = [];
-const shapeCount = 20;
-const spread = 15;
+const shapeCount = 15;
+const spread = 10;
 
-function createMobiusMesh(radius, tube, p, q) {
-  const geom = new THREE.MobiusStripGeometry(radius, tube, 12, 60, p, q);
-  geom.dynamic = true; // allow vertex update
-  const mat = new THREE.MeshStandardMaterial({
-    color:0x00ffcc, wireframe:true, emissive:0x00ffcc, emissiveIntensity:0.3
-  });
-  return new THREE.Mesh(geom, mat);
+function createMobius(radius,tube,p,q){
+  const geom = new THREE.MobiusStripGeometry(radius,tube,12,60,p,q);
+  const mat = new THREE.MeshStandardMaterial({color:0x00ffcc, wireframe:true});
+  const mesh = new THREE.Mesh(geom, mat);
+  return mesh;
 }
 
 for(let i=0;i<shapeCount;i++){
@@ -73,133 +52,82 @@ for(let i=0;i<shapeCount;i++){
   const p = Math.random()*2*Math.PI;
   const q = 1 + Math.floor(Math.random()*3);
 
-  const mesh = createMobiusMesh(radius, tube, p, q);
-  mesh.position.set((Math.random()-0.5)*spread, (Math.random()-0.5)*spread, (Math.random()-0.5)*spread);
+  const mesh = createMobius(radius,tube,p,q);
+  mesh.position.set((Math.random()-0.5)*spread,(Math.random()-0.5)*spread,(Math.random()-0.5)*spread);
   mesh.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
   sculpture.add(mesh);
 
-  shapes.push({mesh, radius, tube, p, q, phase: Math.random()*Math.PI*2, scalePulse:0, colorPulse:0, seqOffset: Math.floor(Math.random()*20)});
+  shapes.push({mesh, phase: Math.random()*Math.PI*2});
 }
 
 /* ===============================
-   WEB AUDIO
+   WEB AUDIO SETUP
    =============================== */
 const audioCtx = new (window.AudioContext||window.webkitAudioContext)();
-const Cminor = [261.63, 311.13, 392.00, 466.16, 523.25];
-const colors = [0xff5555,0xffaa00,0xffff55,0x55ff55,0x55aaff];
+const Cminor = [261.63,311.13,392,466,523];
 let step=0;
 
-function playNote(freq, shape, idx){
+function playNote(freq,shape){
   const osc = audioCtx.createOscillator();
   osc.type='sine';
-  osc.frequency.setValueAtTime(freq,audioCtx.currentTime);
+  osc.frequency.value=freq;
 
   const gain = audioCtx.createGain();
-  gain.gain.setValueAtTime(0.05,audioCtx.currentTime);
+  gain.gain.value = 0.05;
 
-  const pan = audioCtx.createPanner();
-  pan.panningModel='HRTF';
-  pan.positionX.setValueAtTime(shape.mesh.position.x,audioCtx.currentTime);
-  pan.positionY.setValueAtTime(shape.mesh.position.y,audioCtx.currentTime);
-  pan.positionZ.setValueAtTime(shape.mesh.position.z,audioCtx.currentTime);
+  const panner = audioCtx.createPanner();
+  panner.panningModel='HRTF';
+  panner.positionX.value = shape.mesh.position.x;
+  panner.positionY.value = shape.mesh.position.y;
+  panner.positionZ.value = shape.mesh.position.z;
 
-  osc.connect(pan).connect(gain).connect(audioCtx.destination);
+  osc.connect(panner).connect(gain).connect(audioCtx.destination);
   osc.start();
-  osc.stop(audioCtx.currentTime+0.25);
-
-  shape.scalePulse=0.6;
-  shape.colorPulse=1;
-  shape.targetColor = colors[idx%colors.length];
-
-  pulseLights.forEach((l,i)=>l.color.setHex(colors[(idx+i)%colors.length]));
+  osc.stop(audioCtx.currentTime+0.2);
 }
 
 /* ===============================
-   ANIMATION LOOP
+   ANIMATE
    =============================== */
-let lastTime=0;
-let camTime=0;
-let camPulse=0;
-
 function animate(){
   requestAnimationFrame(animate);
   const t = performance.now()*0.001;
 
   shapes.forEach((s,i)=>{
-    // Morph vertices
-    const geom = s.mesh.geometry;
-    for(let j=0;j<geom.attributes.position.count;j++){
-      const x = geom.attributes.position.getX(j);
-      const y = geom.attributes.position.getY(j);
-      const z = geom.attributes.position.getZ(j);
-      geom.attributes.position.setXYZ(j,
-        x*(1+0.1*Math.sin(t+s.phase)),
-        y*(1+0.1*Math.cos(t+s.phase)),
-        z*(1+0.1*Math.sin(t*0.7+s.phase))
-      );
-    }
-    geom.attributes.position.needsUpdate=true;
-
-    // Float & rotate
-    s.mesh.position.x = s.mesh.position.x + Math.sin(t*1.2 + s.phase)*0.001;
-    s.mesh.position.y = s.mesh.position.y + Math.cos(t*0.9 + s.phase)*0.001;
-    s.mesh.position.z = s.mesh.position.z + Math.sin(t*0.7 + s.phase)*0.001;
-
-    s.mesh.rotation.x += 0.01 + 0.01*Math.sin(t+s.seqOffset);
-    s.mesh.rotation.y += 0.01 + 0.01*Math.cos(t+s.seqOffset);
-
-    // Scale pulse
-    s.scalePulse *= 0.85;
-    const scale = 0.8 + s.scalePulse;
-    s.mesh.scale.set(scale, scale, scale);
-
-    // Color pulse
-    if(s.colorPulse>0){
-      s.mesh.material.color.setHex(s.targetColor);
-      s.mesh.material.emissive.setHex(s.targetColor);
-      s.colorPulse*=0.8;
-    } else {
-      s.mesh.material.color.setHex(0x00ffcc);
-      s.mesh.material.emissive.setHex(0x00ffcc);
-    }
+    // simple rotation
+    s.mesh.rotation.x += 0.01 + 0.01*Math.sin(t+s.phase);
+    s.mesh.rotation.y += 0.01 + 0.01*Math.cos(t+s.phase);
   });
 
-  // Camera flythrough
-  camTime+=0.004;
-  const pulseF = 1+camPulse*0.5;
-  camera.position.set(Math.sin(camTime*1.2)*25*pulseF, 5+Math.sin(camTime*0.8)*10*pulseF, Math.cos(camTime*1.3)*25*pulseF);
+  // camera flythrough
+  camera.position.x = Math.sin(t*0.5)*15;
+  camera.position.y = 5 + Math.sin(t*0.3)*5;
+  camera.position.z = Math.cos(t*0.5)*15;
   camera.lookAt(0,0,0);
-  camPulse*=0.85;
 
-  composer.render();
+  renderer.render(scene,camera);
 
-  // Sequencer
-  if(!lastTime) lastTime=t;
-  if(t-lastTime>0.15){
+  // simple sequencer
+  if(Math.floor(t*4) > step){
     shapes.forEach((s,i)=>{
-      if((step+s.seqOffset)%20===0){
+      if((step+i)%5===0){
         const freq = Cminor[i%Cminor.length];
-        playNote(freq,s,i);
-        camPulse=1;
+        playNote(freq,s);
       }
     });
-    step++;
-    lastTime=t;
+    step = Math.floor(t*4);
   }
 }
 animate();
 
-/* ===============================
-   RESIZE
-   =============================== */
+/* RESIZE */
 window.addEventListener('resize',()=>{
   camera.aspect=window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
 });
 
-/* CLICK TO START AUDIO */
+/* START AUDIO ON CLICK */
 document.body.addEventListener('click',()=>{ if(audioCtx.state==='suspended') audioCtx.resume(); });
 </script>
 </body>
