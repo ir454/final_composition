@@ -65,7 +65,7 @@
 <script type="module">
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js";
 
-/* ======================== SCENE ======================== *// WebGL scene creation
+/* ======================== SCENE ======================== */
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
@@ -76,7 +76,7 @@ const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-/* ======================== FLOOR ======================== *// Wireframe floor
+/* ======================== FLOOR ======================== */
 const floorSize = 60;
 const floorGeometry = new THREE.PlaneGeometry(floorSize,floorSize,60,60);
 const floorMaterial = new THREE.MeshBasicMaterial({color:0xffffff, wireframe:true, transparent:true, opacity:0.5});
@@ -84,7 +84,7 @@ const floorMesh = new THREE.Mesh(floorGeometry,floorMaterial);
 floorMesh.rotation.x = -Math.PI/2;
 scene.add(floorMesh);
 
-/* ======================== LIGHT ======================== *// Web GL lighting
+/* ======================== LIGHT ======================== */
 const light = new THREE.DirectionalLight(0xffffff,1);
 light.position.set(5,10,7);
 scene.add(light);
@@ -111,7 +111,7 @@ for(let i=0;i<4;i++){
   circles.push({mesh: circle, currentColor: new THREE.Color(neonColors[i]), targetColor: new THREE.Color(neonColors[i]), baseY: circle.position.y});
 }
 
-/* ======================== SEGMENTS ======================== *// will revisit this in the future
+/* ======================== SEGMENTS ======================== */
 const segmentsPerCircle = 15;
 const circleSegments = [];
 for(let i=0;i<4;i++){
@@ -253,7 +253,7 @@ function startTimer(){
   },1000);
 }
 
-/* ======================== MELODY ======================== *// generative music
+/* ======================== MELODY ======================== */
 function updateMelody(){
   if(!audioStarted) return;
   const now = audioCtx.currentTime;
@@ -413,7 +413,7 @@ function updateMiniMap(){
   miniCtx.fill();
 }
 
-/* ======================== DRUM MACHINE ======================== *//
+/* ======================== DRUM MACHINE ======================== */
 let drumInterval=null;
 function startDrumMachine(){ drumInterval=setInterval(()=>{ circles.forEach(c=>c.targetColor.setHSL(Math.random(),1,0.5)); },300); }
 function stopDrumMachine(){ if(drumInterval) clearInterval(drumInterval); }
